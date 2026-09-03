@@ -1,6 +1,6 @@
 <div align="center">
 
-![Downix Terminal Media Downloader](assets/downix-banner.png)
+![Downix Terminal Media Downloader](assets/downix-cover.png)
 
 # ⬇️ Downix
 
