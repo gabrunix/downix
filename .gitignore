@@ -1,0 +1,14 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Local configuration and downloaded media
+.env
+*.mp3
+*.mp4
+*.part
+*.webm
+*.m4a
+cookies.txt
