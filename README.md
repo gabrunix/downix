@@ -227,7 +227,7 @@ See [LICENSE](LICENSE) for details.
 
 ## 👤 Author
 
-**G4brun1x — Gabriel Konstantinovich**
+**G4brun1x — Gabriel Urbaez**
 
 - GitHub: [@gabrunix](https://github.com/gabrunix)
 
