@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 APP_HOME="${DOWNIX_HOME:-$HOME/.local/share/downix}"
 BIN_DIR="${HOME}/.local/bin"
 VENV_DIR="$APP_HOME/venv"
@@ -192,6 +192,5 @@ fi
 printf '\n'
 ok "Downix instalado correctamente."
 printf 'Comando: %bdown%b\n' "$GREEN" "$RESET"
-printf 'Diagnóstico: %bdown --doctor%b\n' "$GREEN" "$RESET"
 printf 'Actualizar runtime: %bdown --update%b\n' "$GREEN" "$RESET"
 printf '\nSi esta terminal aún no reconoce down, ejecuta: export PATH="$HOME/.local/bin:$PATH"\n'

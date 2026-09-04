@@ -1,11 +1,5 @@
 # Troubleshooting
 
-## Diagnose
-
-```bash
-down --doctor
-```
-
 ## YouTube extractor / nsig / EJS errors
 
 Use:

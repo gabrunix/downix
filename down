@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -u
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 APP_NAME="Downix"
 APP_HOME="${DOWNIX_HOME:-$HOME/.local/share/downix}"
 VENV_DIR="$APP_HOME/venv"
@@ -286,13 +286,6 @@ show_menu() {
 case "${1:-}" in
   --version|-v) printf 'Downix %s\n' "$VERSION" ;;
   --update) load_lang; runtime_update ;;
-  --doctor)
-    printf 'Downix %s\n' "$VERSION"
-    printf 'yt-dlp: '; [[ -x "$YTDLP" ]] && "$YTDLP" --version || printf 'missing\n'
-    printf 'deno: '; [[ -x "$DENO_BIN" ]] && "$DENO_BIN" --version | head -n1 || printf 'missing\n'
-    printf 'ffmpeg: '; command -v ffmpeg || printf 'missing\n'
-    printf 'download: %s\n' "$DOWNLOAD_ROOT"
-    ;;
   '') load_lang; show_menu ;;
-  *) printf 'Usage: down [--version|--update|--doctor]\n'; exit 2 ;;
+  *) printf 'Usage: down [--version|--update]\n'; exit 2 ;;
 esac
