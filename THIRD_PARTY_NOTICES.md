@@ -1,31 +1,11 @@
-# Third-party notices
+# Third-Party Notices
 
-Downix is an independent Bash interface. It does not bundle, modify, host, or
-redistribute media services or their content.
+Downix is MIT-licensed, but it installs or invokes independent third-party software.
 
-## yt-dlp
+- **yt-dlp** — https://github.com/yt-dlp/yt-dlp — Unlicense; its release/package may include additional components under their respective licenses.
+- **yt-dlp-ejs** — https://github.com/yt-dlp/ejs — Unlicense with bundled MIT/ISC components as documented upstream.
+- **FFmpeg** — https://ffmpeg.org/ — LGPL/GPL depending on the build supplied by the operating system.
+- **Deno** — https://deno.com/ — MIT License.
+- Python and operating-system packages retain their own licenses.
 
-Downix invokes `yt-dlp` as a separately installed external program. The yt-dlp
-source repository and PyPI distributions are published under The Unlicense;
-some release formats include components under additional licenses. Consult:
-
-- https://github.com/yt-dlp/yt-dlp
-- https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE
-
-## FFmpeg
-
-Downix invokes `ffmpeg` as a separately installed external program. FFmpeg is
-primarily LGPL-licensed, with optional components and configurations that may
-make a particular build GPL-licensed. Consult:
-
-- https://ffmpeg.org/
-- https://ffmpeg.org/legal.html
-
-## Platform utilities
-
-Downix may invoke Bash, Python, Android/Termux utilities, `xdg-open`, package
-managers, and other system tools. They remain separate programs governed by
-their respective licenses and distributions.
-
-Downix is not affiliated with YouTube, Google, Meta, Facebook, Instagram,
-Pinterest, yt-dlp, FFmpeg, Termux, or their maintainers.
+Downix does not redistribute media from supported sites. The installer downloads dependencies from their upstream/project or operating-system package sources.

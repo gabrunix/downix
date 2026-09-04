@@ -1,10 +1,12 @@
-# Contributing to Downix
+# Contributing
 
-Downix is maintained by G4brun1x. Suggested workflow:
+Contributions, bug reports and portability fixes are welcome.
 
-1. Create a branch: `git switch -c feature/short-name`.
-2. Keep shell code compatible with Bash on Termux and desktop Linux.
-3. Validate scripts with `bash -n down install.sh uninstall.sh`.
-4. Test both Spanish and English menus.
-5. Never commit downloaded media, cookies, credentials, or personal data.
-6. Commit with a clear message and open a pull request for review.
+Before submitting a change:
+
+1. Test `./install.sh` in the target environment.
+2. Run `down --doctor`.
+3. Test one public audio URL and one public video URL you are authorized to download.
+4. Avoid hard-coded home directories or distro-specific absolute paths.
+5. Keep Termux and desktop Linux behavior separated where required.
+6. Do not add DRM bypass functionality.

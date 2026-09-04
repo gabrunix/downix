@@ -1,16 +1,7 @@
 # Security Policy
 
-## Sensitive files
+Do not publish credentials, cookies, tokens, private URLs, or personal session files in bug reports.
 
-Never commit cookies, passwords, API tokens, session files, downloaded media,
-or personally identifiable information.
+Downix does not require root privileges for its own runtime. Elevated privileges may be requested only by the operating-system package manager when base packages such as FFmpeg or Python are missing.
 
-## Reporting
-
-Report suspected vulnerabilities privately to the repository owner. Do not
-publish exploit details before a fix is available.
-
-## Scope
-
-Downix delegates media extraction to `yt-dlp` and conversion to `ffmpeg`.
-Keep both dependencies updated and obtain them from trusted package sources.
+Report security issues privately to the project maintainer before public disclosure when practical.

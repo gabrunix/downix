@@ -1,248 +1,298 @@
 #!/usr/bin/env bash
 set -u
 
-GREEN='\033[1;32m'; LIME='\033[38;5;118m'; CYAN='\033[1;36m'
-DIM='\033[2m'; RED='\033[1;31m'; YELLOW='\033[1;33m'; RESET='\033[0m'
-CONFIG_DIR="$HOME/.config/downix"
+VERSION="1.1.0"
+APP_NAME="Downix"
+APP_HOME="${DOWNIX_HOME:-$HOME/.local/share/downix}"
+VENV_DIR="$APP_HOME/venv"
+YTDLP="$VENV_DIR/bin/yt-dlp"
+DENO_BIN="$APP_HOME/deno/bin/deno"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/downix"
 LANG_FILE="$CONFIG_DIR/language"
-LANG_CODE="es"
-[[ -s "$LANG_FILE" ]] && IFS= read -r LANG_CODE < "$LANG_FILE"
-[[ "$LANG_CODE" == "en" ]] || LANG_CODE="es"
 
-is_termux() { [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; }
-terminal_width() {
-  TERM_COLS="${COLUMNS:-$(tput cols 2>/dev/null || printf '80')}"
-  [[ "$TERM_COLS" =~ ^[0-9]+$ ]] || TERM_COLS=80
-  if is_termux; then
-    UI_WIDTH=26
+RESET='\033[0m'; BOLD='\033[1m'; DIM='\033[2m'
+GREEN='\033[38;5;46m'; CYAN='\033[38;5;51m'; YELLOW='\033[38;5;226m'; RED='\033[38;5;196m'
+
+is_termux() {
+  [[ -n "${TERMUX_VERSION:-}" ]] || [[ "${PREFIX:-}" == *"com.termux"* ]]
+}
+
+if is_termux; then
+  DOWNLOAD_ROOT="$HOME/storage/shared/Download/Downix"
+else
+  if [[ -d "$HOME/Downloads" ]]; then
+    DOWNLOAD_ROOT="$HOME/Downloads/Downix"
   else
-    UI_WIDTH=$((TERM_COLS - 4))
-    ((UI_WIDTH > 52)) && UI_WIDTH=52
-    ((UI_WIDTH < 26)) && UI_WIDTH=26
+    DOWNLOAD_ROOT="$HOME/Download/Downix"
+  fi
+fi
+MUSIC_DIR="$DOWNLOAD_ROOT/Music"
+VIDEO_DIR="$DOWNLOAD_ROOT/Video"
+
+mkdir -p "$CONFIG_DIR" "$MUSIC_DIR" "$VIDEO_DIR" 2>/dev/null || true
+
+load_lang() {
+  if [[ -f "$LANG_FILE" ]]; then
+    LANG=$(cat "$LANG_FILE" 2>/dev/null || printf 'es')
+  else
+    case "${LANG:-${LC_ALL:-${LC_MESSAGES:-}}}" in
+      en*|EN*) LANG="en" ;;
+      *) LANG="es" ;;
+    esac
   fi
 }
 
-line() {
-  local i
-  printf "${GREEN}  "
-  for ((i=0; i<UI_WIDTH; i++)); do printf '─'; done
-  printf "${RESET}\n"
+save_lang() { printf '%s\n' "$LANG" > "$LANG_FILE"; }
+
+trmsg() {
+  local key="$1"
+  if [[ "$LANG" == "en" ]]; then
+    case "$key" in
+      audio) printf 'Download MP3 audio' ;; video) printf 'Download MP4 video' ;;
+      browse) printf 'Browse downloaded files' ;; update) printf 'Update dependencies' ;;
+      language) printf 'Change language' ;; exit) printf 'Exit' ;;
+      paste) printf 'Paste the YouTube, Instagram, Facebook or Pinterest link:' ;;
+      url) printf 'URL' ;; saving) printf 'Saving to' ;; audioq) printf 'MP3 audio quality:' ;;
+      videoq) printf 'Maximum video quality:' ;; best) printf 'Best available' ;;
+      failed) printf 'Download failed.' ;; retrying) printf 'Detected a yt-dlp/YouTube compatibility problem. Updating Downix runtime and retrying once...' ;;
+      success) printf 'Download completed.' ;; press) printf 'Press Enter to continue...' ;;
+      depsok) printf 'Dependencies are ready.' ;; depsfail) printf 'Could not update one or more dependencies.' ;;
+      missing) printf 'Downix runtime is missing or damaged. Run: ./install.sh (from the project folder) or reinstall Downix.' ;;
+      choose) printf 'Choose an option' ;; openfail) printf 'Could not open the file explorer automatically.' ;;
+      langnow) printf 'Language changed to English.' ;;
+    esac
+  else
+    case "$key" in
+      audio) printf 'Descargar audio MP3' ;; video) printf 'Descargar video MP4' ;;
+      browse) printf 'Explorar archivos descargados' ;; update) printf 'Actualizar dependencias' ;;
+      language) printf 'Cambiar idioma' ;; exit) printf 'Salir' ;;
+      paste) printf 'Pega el enlace de YouTube, Instagram, Facebook o Pinterest:' ;;
+      url) printf 'URL' ;; saving) printf 'Guardando en' ;; audioq) printf 'Calidad de audio MP3:' ;;
+      videoq) printf 'Calidad máxima de video:' ;; best) printf 'Mejor disponible' ;;
+      failed) printf 'No se pudo descargar.' ;; retrying) printf 'Se detectó un problema de compatibilidad de yt-dlp/YouTube. Actualizando el runtime de Downix y reintentando una vez...' ;;
+      success) printf 'Descarga completada.' ;; press) printf 'Presiona Enter para continuar...' ;;
+      depsok) printf 'Dependencias listas.' ;; depsfail) printf 'No se pudo actualizar una o más dependencias.' ;;
+      missing) printf 'El runtime de Downix falta o está dañado. Ejecuta ./install.sh desde la carpeta del proyecto o reinstala Downix.' ;;
+      choose) printf 'Elige una opción' ;; openfail) printf 'No se pudo abrir el explorador de archivos automáticamente.' ;;
+      langnow) printf 'Idioma cambiado a español.' ;;
+    esac
+  fi
 }
 
-t() {
-  case "$LANG_CODE:$1" in
-    es:audio) echo "Descargar audio MP3";; en:audio) echo "Download MP3 audio";;
-    es:video) echo "Descargar video MP4";; en:video) echo "Download MP4 video";;
-    es:explore) echo "Explorar archivos descargados";; en:explore) echo "Browse downloaded files";;
-    es:update) echo "Actualizar dependencias";; en:update) echo "Update dependencies";;
-    es:language) echo "Cambiar idioma";; en:language) echo "Change language";;
-    es:exit) echo "Salir";; en:exit) echo "Exit";;
-    es:url) echo "Pega el enlace de YouTube, Instagram, Facebook o Pinterest:";;
-    en:url) echo "Paste the YouTube, Instagram, Facebook, or Pinterest link:";;
-    es:invalid) echo "El enlace no es válido.";; en:invalid) echo "The link is not valid.";;
-    es:saving) echo "Guardando en";; en:saving) echo "Saving to";;
-    es:done) echo "Descarga terminada.";; en:done) echo "Download completed.";;
-    es:failed) echo "No se pudo descargar. Algunos sitios requieren iniciar sesión o cookies.";;
-    en:failed) echo "Download failed. Some sites require sign-in or cookies.";;
-    es:opening) echo "Abriendo el explorador de archivos...";; en:opening) echo "Opening the file explorer...";;
-    es:pause) echo "Presiona Enter para continuar...";; en:pause) echo "Press Enter to continue...";;
-    es:missing) echo "Falta la dependencia";; en:missing) echo "Missing dependency";;
-    es:install_again) echo "Ejecuta nuevamente el instalador.";; en:install_again) echo "Run the installer again.";;
-    es:updated) echo "Dependencias actualizadas.";; en:updated) echo "Dependencies updated.";;
-    es:bye) echo "Hasta luego, G4brun1x.";; en:bye) echo "See you later, G4brun1x.";;
-    es:bad_option) echo "Opción no válida.";; en:bad_option) echo "Invalid option.";;
-    es:storage) echo "Android necesita permiso para guardar archivos.";;
-    en:storage) echo "Android needs storage permission to save files.";;
-    es:accept) echo "Acepta el permiso y presiona Enter...";; en:accept) echo "Allow access and press Enter...";;
-    *) echo "$1";;
-  esac
-}
-
-pause() { printf "\n${DIM}%s${RESET}" "$(t pause)"; read -r _; }
+clear_screen() { printf '\033[2J\033[H'; }
+line() { printf '%b\n' "${DIM}  ────────────────────────────────────────────────────${RESET}"; }
 
 banner() {
-  clear
-  terminal_width
-  if is_termux; then
-    printf "${LIME}"
-    cat <<'EOF'
-  ╔╦╗ ╔═╗ ╦ ╦ ╔╗╔ ╦ ═╗ ╦
-   ║║ ║ ║ ║║║ ║║║ ║ ╔╩╦╝
-  ═╩╝ ╚═╝ ╚╩╝ ╝╚╝ ╩ ╩ ╚═
-        ♪ MP3  ⇩  MP4 ▶
-EOF
-    printf "${CYAN}          by G4brun1x${RESET}\n"
-  elif ((TERM_COLS >= 60)); then
-    printf "${LIME}"
-    cat <<'EOF'
+  clear_screen
+  printf '%b' "$GREEN"
+  cat <<'ART'
   ██████╗  ██████╗ ██╗    ██╗███╗   ██╗██╗██╗  ██╗
   ██╔══██╗██╔═══██╗██║    ██║████╗  ██║██║╚██╗██╔╝
   ██║  ██║██║   ██║██║ █╗ ██║██╔██╗ ██║██║ ╚███╔╝
   ██║  ██║██║   ██║██║███╗██║██║╚██╗██║██║ ██╔██╗
   ██████╔╝╚██████╔╝╚███╔███╔╝██║ ╚████║██║██╔╝ ██╗
   ╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝
-EOF
-    printf "${CYAN}            by G4brun1x  •  Media Downloader${RESET}\n"
-  else
-    local compact subtitle pad
-    line
-    compact=">>> D O W N I X <<<"
-    pad=$(((UI_WIDTH - ${#compact}) / 2 + 2))
-    ((pad < 0)) && pad=0
-    printf "${LIME}%*s%s${RESET}\n" "$pad" "" "$compact"
-    if ((TERM_COLS >= 42)); then
-      subtitle="by G4brun1x • Media Downloader"
-    else
-      subtitle="by G4brun1x"
-    fi
-    pad=$(((UI_WIDTH - ${#subtitle}) / 2 + 2))
-    ((pad < 0)) && pad=0
-    printf "${CYAN}%*s%s${RESET}\n" "$pad" "" "$subtitle"
-  fi
+ART
+  printf '%b\n' "${RESET}${DIM}            by G4brun1x  •  Media Downloader  v${VERSION}${RESET}"
   line
 }
 
-need_cmd() {
-  command -v "$1" >/dev/null 2>&1 || {
-    printf "${RED}%s: %s${RESET}\n" "$(t missing)" "$1"
-    printf "${YELLOW}%s${RESET}\n" "$(t install_again)"
-    exit 1
-  }
-}
+pause() { printf '\n%b' "${DIM}$(trmsg press)${RESET}"; read -r _; }
 
-android_storage() {
-  if [[ ! -d "$HOME/storage/shared" ]]; then
-    printf "${YELLOW}%s${RESET}\n" "$(t storage)"
-    termux-setup-storage
-    printf "%s" "$(t accept)"
-    read -r _
+ensure_runtime() {
+  if [[ ! -x "$YTDLP" ]]; then
+    printf '%b\n' "${RED}✗ $(trmsg missing)${RESET}"
+    return 1
   fi
+  return 0
 }
 
-setup_directories() {
-  if is_termux; then
-    android_storage
-    DOWNIX_ROOT="$HOME/storage/shared/Download/Downix"
+ytdlp_cmd() {
+  local args=("$YTDLP" --ignore-config --no-playlist --newline)
+  if [[ -x "$DENO_BIN" ]]; then
+    args+=(--js-runtimes "deno:$DENO_BIN")
+  elif command -v deno >/dev/null 2>&1; then
+    args+=(--js-runtimes deno)
+  fi
+  args+=("$@")
+  "${args[@]}"
+}
+
+runtime_update() {
+  local updater="$APP_HOME/update-runtime"
+  if [[ -x "$updater" ]]; then
+    "$updater"
+    return $?
+  fi
+  if [[ -x "$VENV_DIR/bin/python" ]]; then
+    "$VENV_DIR/bin/python" -m pip install -U "yt-dlp[default]" || return 1
   else
-    DOWNIX_ROOT="$HOME/Downloads/Downix"
+    return 1
   fi
-  mkdir -p "$DOWNIX_ROOT/Music" "$DOWNIX_ROOT/Video"
+  if [[ -x "$DENO_BIN" ]]; then "$DENO_BIN" upgrade >/dev/null 2>&1 || true; fi
+}
+
+run_with_self_heal() {
+  local log rc
+  log=$(mktemp "${TMPDIR:-/tmp}/downix.XXXXXX") || return 1
+  set +e
+  ytdlp_cmd "$@" 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  set -e 2>/dev/null || true
+  if (( rc != 0 )) && grep -Eqi 'nsig extraction failed|Unable to extract uploader id|Precondition check failed|No supported JavaScript runtime|yt-dlp-ejs|challenge solver|signature extraction failed' "$log"; then
+    printf '\n%b\n' "${YELLOW}⚠ $(trmsg retrying)${RESET}"
+    if runtime_update; then
+      printf '\n'
+      set +e
+      ytdlp_cmd "$@"
+      rc=$?
+      set -e 2>/dev/null || true
+    fi
+  fi
+  rm -f "$log"
+  return "$rc"
+}
+
+ask_url() {
+  printf '%s\n' "$(trmsg paste)"
+  printf '  %s: ' "$(trmsg url)"
+  read -r URL
+  [[ "$URL" =~ ^https?:// ]] || { printf '%b\n' "${RED}✗ URL inválida / Invalid URL${RESET}"; return 1; }
 }
 
 download_audio() {
-  local quality
-  [[ "$LANG_CODE" == "es" ]] && printf "\n${CYAN}Calidad MP3:${RESET}\n" || printf "\n${CYAN}MP3 quality:${RESET}\n"
-  printf "  1) 320 kbps\n  2) 256 kbps\n  3) 192 kbps\n  4) 128 kbps\n"
-  read -r -p "  [3]: " quality
-  case "${quality:-3}" in 1) quality=320;; 2) quality=256;; 4) quality=128;; *) quality=192;; esac
-  yt-dlp --newline --no-mtime -x --audio-format mp3 --audio-quality "${quality}K" \
-    --embed-thumbnail --add-metadata \
-    -o "$SAVE_DIR/%(title).180B [%(id)s].%(ext)s" -- "$URL"
+  ensure_runtime || { pause; return; }
+  banner
+  ask_url || { pause; return; }
+  printf '\n%s: %s\n\n' "$(trmsg saving)" "$MUSIC_DIR"
+  printf '%s\n' "$(trmsg audioq)"
+  printf '  1) 128 kbps\n  2) 192 kbps\n  3) 256 kbps\n  4) 320 kbps\n  [4]: '
+  read -r q; q=${q:-4}
+  case "$q" in 1) abr=128 ;; 2) abr=192 ;; 3) abr=256 ;; *) abr=320 ;; esac
+
+  if run_with_self_heal \
+      -x --audio-format mp3 --audio-quality "${abr}K" \
+      --embed-thumbnail --embed-metadata \
+      --convert-thumbnails jpg \
+      -o "$MUSIC_DIR/%(title).180B [%(id)s].%(ext)s" \
+      "$URL"; then
+    printf '\n%b\n' "${GREEN}✓ $(trmsg success)${RESET}"
+  else
+    printf '\n%b\n' "${RED}✗ $(trmsg failed)${RESET}"
+    printf '%b\n' "${DIM}Algunos enlaces privados, restringidos por edad o sesión pueden requerir cookies.${RESET}"
+  fi
+  pause
 }
 
 download_video() {
-  local choice height format
-  if [[ "$LANG_CODE" == "es" ]]; then
-    printf "\n${CYAN}Calidad máxima de video:${RESET}\n"
-    printf "  1) 2160p (4K)\n  2) 1440p\n  3) 1080p\n  4) 720p\n  5) 480p\n  6) Mejor disponible\n"
+  ensure_runtime || { pause; return; }
+  banner
+  ask_url || { pause; return; }
+  printf '\n%s: %s\n\n' "$(trmsg saving)" "$VIDEO_DIR"
+  printf '%s\n' "$(trmsg videoq)"
+  printf '  1) 2160p (4K)\n  2) 1440p\n  3) 1080p\n  4) 720p\n  5) 480p\n  6) %s\n  [3]: ' "$(trmsg best)"
+  read -r q; q=${q:-3}
+  case "$q" in
+    1) h=2160 ;; 2) h=1440 ;; 3) h=1080 ;; 4) h=720 ;; 5) h=480 ;; 6) h="" ;; *) h=1080 ;;
+  esac
+
+  local fmt
+  if [[ -n "$h" ]]; then
+    fmt="bv*[height<=${h}]+ba/b[height<=${h}]/b"
   else
-    printf "\n${CYAN}Maximum video quality:${RESET}\n"
-    printf "  1) 2160p (4K)\n  2) 1440p\n  3) 1080p\n  4) 720p\n  5) 480p\n  6) Best available\n"
+    fmt="bv*+ba/b"
   fi
-  read -r -p "  [3]: " choice
-  case "${choice:-3}" in 1) height=2160;; 2) height=1440;; 4) height=720;; 5) height=480;; 6) height="";; *) height=1080;; esac
-  if [[ -n "$height" ]]; then format="bv*[height<=${height}]+ba/b[height<=${height}]/best"
-  else format="bv*+ba/best"; fi
-  yt-dlp --newline --no-mtime -f "$format" --merge-output-format mp4 \
-    --embed-metadata --embed-thumbnail \
-    -o "$SAVE_DIR/%(title).180B [%(id)s].%(ext)s" -- "$URL"
+
+  if run_with_self_heal \
+      -f "$fmt" --merge-output-format mp4 \
+      --embed-metadata --embed-thumbnail \
+      -o "$VIDEO_DIR/%(title).180B [%(id)s].%(ext)s" \
+      "$URL"; then
+    printf '\n%b\n' "${GREEN}✓ $(trmsg success)${RESET}"
+  else
+    printf '\n%b\n' "${RED}✗ $(trmsg failed)${RESET}"
+    printf '%b\n' "${DIM}Algunos enlaces privados, restringidos por edad o sesión pueden requerir cookies.${RESET}"
+  fi
+  pause
 }
 
-open_downloads() {
-  setup_directories || return
+browse_downloads() {
+  mkdir -p "$DOWNLOAD_ROOT"
   if is_termux; then
-    printf "${GREEN}%s${RESET}\n" "$(t opening)"
-    am start -a android.intent.action.VIEW \
-      -d "content://com.android.externalstorage.documents/root/primary" \
-      -t "vnd.android.document/root"
+    if command -v termux-open >/dev/null 2>&1; then
+      termux-open "$DOWNLOAD_ROOT" >/dev/null 2>&1 || true
+    elif command -v am >/dev/null 2>&1; then
+      am start -a android.intent.action.VIEW -d "file://$DOWNLOAD_ROOT" >/dev/null 2>&1 || true
+    else
+      printf '%b\n' "${YELLOW}! $(trmsg openfail)${RESET}"
+      printf '%s\n' "$DOWNLOAD_ROOT"
+    fi
   elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$DOWNIX_ROOT" >/dev/null 2>&1 &
-  elif command -v yazi >/dev/null 2>&1; then yazi "$DOWNIX_ROOT"
-  else ls -lah "$DOWNIX_ROOT"; fi
+    xdg-open "$DOWNLOAD_ROOT" >/dev/null 2>&1 &
+  elif command -v gio >/dev/null 2>&1; then
+    gio open "$DOWNLOAD_ROOT" >/dev/null 2>&1 &
+  else
+    printf '%s\n' "$DOWNLOAD_ROOT"
+  fi
+  pause
 }
 
 update_dependencies() {
-  if is_termux; then
-    pkg install -y ffmpeg
-    python -m pip install -U yt-dlp
-  elif command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get update
-    sudo apt-get install -y --only-upgrade yt-dlp ffmpeg
-  elif command -v dnf >/dev/null 2>&1; then sudo dnf upgrade -y yt-dlp ffmpeg
-  elif command -v pacman >/dev/null 2>&1; then sudo pacman -S --needed yt-dlp ffmpeg
+  banner
+  printf '%b\n\n' "${CYAN}$(trmsg update)...${RESET}"
+  if runtime_update; then
+    printf '\n%b\n' "${GREEN}✓ $(trmsg depsok)${RESET}"
+    printf '%b\n' "${DIM}yt-dlp: $($YTDLP --version 2>/dev/null || printf '?')${RESET}"
+    if [[ -x "$DENO_BIN" ]]; then printf '%b\n' "${DIM}$($DENO_BIN --version 2>/dev/null | head -n1)${RESET}"; fi
+    command -v ffmpeg >/dev/null 2>&1 && printf '%b\n' "${DIM}$(ffmpeg -version 2>/dev/null | head -n1)${RESET}"
+  else
+    printf '%b\n' "${RED}✗ $(trmsg depsfail)${RESET}"
   fi
-  printf "${GREEN}%s${RESET}\n" "$(t updated)"
+  pause
 }
 
 change_language() {
-  printf "\n${CYAN}Idioma / Language${RESET}\n  1) Español\n  2) English\n"
-  read -r -p "  > " choice
-  case "$choice" in 2) LANG_CODE="en";; *) LANG_CODE="es";; esac
-  mkdir -p "$CONFIG_DIR"
-  printf '%s\n' "$LANG_CODE" > "$LANG_FILE"
+  if [[ "$LANG" == "es" ]]; then LANG="en"; else LANG="es"; fi
+  save_lang
+  printf '%b\n' "${GREEN}✓ $(trmsg langnow)${RESET}"
+  sleep 1
 }
 
-main() {
-  need_cmd yt-dlp; need_cmd ffmpeg
+show_menu() {
   while true; do
+    load_lang
     banner
-    if is_termux; then
-      if [[ "$LANG_CODE" == "es" ]]; then
-        printf "${CYAN}  [1] Audio MP3${RESET}\n"
-        printf "${CYAN}  [2] Video MP4${RESET}\n"
-        printf "${CYAN}  [3] Explorar descargas${RESET}\n"
-        printf "${CYAN}  [4] Actualizar dependencias${RESET}\n"
-        printf "${CYAN}  [5] Cambiar idioma${RESET}\n"
-        printf "${CYAN}  [0] Salir${RESET}\n"
-      else
-        printf "${CYAN}  [1] MP3 audio${RESET}\n"
-        printf "${CYAN}  [2] MP4 video${RESET}\n"
-        printf "${CYAN}  [3] Browse downloads${RESET}\n"
-        printf "${CYAN}  [4] Update dependencies${RESET}\n"
-        printf "${CYAN}  [5] Change language${RESET}\n"
-        printf "${CYAN}  [0] Exit${RESET}\n"
-      fi
-    else
-      printf "${CYAN}  [1] %s${RESET}\n" "$(t audio)"
-      printf "${CYAN}  [2] %s${RESET}\n" "$(t video)"
-      printf "${CYAN}  [3] %s${RESET}\n" "$(t explore)"
-      printf "${CYAN}  [4] %s${RESET}\n" "$(t update)"
-      printf "${CYAN}  [5] %s${RESET}\n" "$(t language)"
-      printf "${CYAN}  [0] %s${RESET}\n" "$(t exit)"
-    fi
+    printf '  %b[1]%b %s\n' "$GREEN" "$RESET" "$(trmsg audio)"
+    printf '  %b[2]%b %s\n' "$GREEN" "$RESET" "$(trmsg video)"
+    printf '  %b[3]%b %s\n' "$GREEN" "$RESET" "$(trmsg browse)"
+    printf '  %b[4]%b %s\n' "$GREEN" "$RESET" "$(trmsg update)"
+    printf '  %b[5]%b %s\n' "$GREEN" "$RESET" "$(trmsg language)"
+    printf '  %b[0]%b %s\n' "$RED" "$RESET" "$(trmsg exit)"
     line
-    read -r -p "  > " action
-    case "$action" in
-      1|2)
-        printf "\n${YELLOW}%s${RESET}\n" "$(t url)"
-        read -r -p "  URL: " URL
-        [[ "$URL" =~ ^https?:// ]] || { printf "${RED}%s${RESET}\n" "$(t invalid)"; pause; continue; }
-        setup_directories || { pause; continue; }
-        if [[ "$action" == 1 ]]; then SAVE_DIR="$DOWNIX_ROOT/Music"; else SAVE_DIR="$DOWNIX_ROOT/Video"; fi
-        printf "\n${GREEN}%s: %s${RESET}\n\n" "$(t saving)" "$SAVE_DIR"
-        if [[ "$action" == 1 ]]; then download_audio; else download_video; fi
-        status=$?
-        if [[ $status -eq 0 ]]; then printf "\n${LIME}✓ %s${RESET}\n" "$(t done)"
-        else printf "\n${RED}✗ %s${RESET}\n" "$(t failed)"; fi
-        pause
-        ;;
-      3) open_downloads; sleep 1 ;;
-      4) update_dependencies; pause ;;
+    printf '  > '
+    read -r opt
+    case "$opt" in
+      1) download_audio ;;
+      2) download_video ;;
+      3) browse_downloads ;;
+      4) update_dependencies ;;
       5) change_language ;;
-      0) printf "${GREEN}%s${RESET}\n" "$(t bye)"; exit 0 ;;
-      *) printf "${RED}%s${RESET}\n" "$(t bad_option)"; sleep 1 ;;
+      0) clear_screen; exit 0 ;;
+      *) sleep 0.5 ;;
     esac
   done
 }
 
-main "$@"
+case "${1:-}" in
+  --version|-v) printf 'Downix %s\n' "$VERSION" ;;
+  --update) load_lang; runtime_update ;;
+  --doctor)
+    printf 'Downix %s\n' "$VERSION"
+    printf 'yt-dlp: '; [[ -x "$YTDLP" ]] && "$YTDLP" --version || printf 'missing\n'
+    printf 'deno: '; [[ -x "$DENO_BIN" ]] && "$DENO_BIN" --version | head -n1 || printf 'missing\n'
+    printf 'ffmpeg: '; command -v ffmpeg || printf 'missing\n'
+    printf 'download: %s\n' "$DOWNLOAD_ROOT"
+    ;;
+  '') load_lang; show_menu ;;
+  *) printf 'Usage: down [--version|--update|--doctor]\n'; exit 2 ;;
+esac
