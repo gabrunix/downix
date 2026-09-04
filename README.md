@@ -471,7 +471,7 @@ THIRD_PARTY_NOTICES.md
 
 ### G4brun1x
 
-**Gabriel Urbaesz**
+**Gabriel Urbaez**
 
 Desarrollo · Linux · Terminal · Open Source
 
